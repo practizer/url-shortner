@@ -98,7 +98,7 @@ func GoogleAuth(c *gin.Context){
 		0,
 		"/",
 		os.Getenv("COOKIE_DOMAIN"),
-		false,
+		true,
 		true,
 	)
 	c.JSON(http.StatusOK,gin.H{
