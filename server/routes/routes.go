@@ -12,7 +12,7 @@ import (
 func Routes(r *gin.Engine) {
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173","https://bit-urls.vercel.app/"},
+		AllowOrigins:     []string{"http://localhost:5173","https://bit-urls.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
