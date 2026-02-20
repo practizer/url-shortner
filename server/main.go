@@ -5,6 +5,7 @@ import(
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gin-gonic/gin"
+	"os"
 
 	"server/routes"
 	"server/config"
@@ -20,5 +21,7 @@ func main(){
 	r.Use(gin.Recovery())
 	routes.Routes(r)
 
-	r.Run(":5000")
+	port := os.Getenv("PORT")
+
+	r.Run(":" + port)
 }
