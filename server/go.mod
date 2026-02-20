@@ -1,6 +1,6 @@
 module server
 
-go 1.24
+go 1.25
 
 require (
 	cloud.google.com/go/auth v0.18.1 // indirect
