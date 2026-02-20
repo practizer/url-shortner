@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"time"
+	"database/sql"
 	"net/http"
 	"server/config"
 	"server/models"
@@ -8,25 +10,91 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func urlAvailablityChecker(c *gin.Context){
+func UrlAvailabilityChecker(c *gin.Context) {
 
 	var input models.Url
 
-	
-
-	err:=config.DB.QueryRow("SELECT short_code FROM urls WHERE short_code = ?",input.ShortCode)
-
-	if err==nil{
-		c.JSON(http.StatusBadRequest,gin.H{
-			"status":false,
-			"error":"Short Code Already Exists",
-		});
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": false,
+			"error":  "Invalid request body",
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK,gin.H{
-		"status":true,
-		"message":"Short Code Available",
-	})
+	var shortCode string
 
+	err := config.DB.QueryRow("SELECT short_code FROM urls WHERE short_code = ?", input.ShortCode).Scan(&shortCode)
+
+	if err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": false,
+			"error":  "Short Code Already Exists",
+		})
+		return
+	}
+
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  true,
+			"message": "Short Code Available",
+		})
+		return
+	}
+	
+	c.JSON(http.StatusInternalServerError, gin.H{
+		"status": false,
+		"error":  "Database error",
+	})
+}
+
+func AddUrl(c *gin.Context){
+	var input  models.UrlRequest
+	if err := c.ShouldBindJSON(&input);err!=nil{
+		c.JSON(http.StatusBadRequest,gin.H{"error":"Invalid Input"})
+		return
+	}
+	userIDvalue ,exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized,gin.H{"error":"Unauthorized"})
+		return
+	}
+	userID := userIDvalue.(int)
+
+	_,err := config.DB.Exec("INSERT INTO urls (user_id,short_code,original_url,created_at,expires_at) VALUES (?,?,?,?,?)",userID,input.ShortCode,input.OriginalUrl,time.Now(),time.Now().Add(48*time.Hour))
+
+	if err!=nil{
+		c.JSON(http.StatusInternalServerError,gin.H{"error":err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK,gin.H{
+		"message":"URL added Successfully",
+	})
+}
+
+func RedirectUrl(c *gin.Context){
+	shortcode := c.Param("shortcode")
+
+	var originalUrl string
+
+	err:=config.DB.QueryRow(
+		"SELECT original_url FROM urls WHERE short_code = ?",shortcode,
+	).Scan(&originalUrl)
+
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound,gin.H{"error":"URL not Found"})
+		return
+	}
+	
+	if err!=nil{
+		c.JSON(http.StatusInternalServerError,gin.H{"error":"Database Error"});
+		return
+	}
+	_,err = config.DB.Exec("UPDATE urls SET clicks = clicks+1 WHERE short_code=?",shortcode)
+
+	if err!=nil{
+		c.JSON(http.StatusInternalServerError,gin.H{"error":"Failed To Update click count"})
+		return
+	}
+	c.Redirect(http.StatusFound,originalUrl)
 }

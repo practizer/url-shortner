@@ -16,6 +16,8 @@ func main(){
 	config.InitDB()
 
 	r := gin.Default()
+	r.Use(gin.Logger())
+	r.Use(gin.Recovery())
 	routes.Routes(r)
 
 	r.Run(":5000")

@@ -13,3 +13,8 @@ type Url struct {
 	ExpiresAt   time.Time 	`json:"expires_at"`
 	Clicks      int			`json:"clicks"`
 }
+
+type UrlRequest struct {
+	ShortCode   string 		`json:"short_code"`
+	OriginalUrl string 		`json:"original_url"`
+}

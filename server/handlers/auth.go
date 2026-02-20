@@ -8,15 +8,12 @@ import (
 	"os"
 
 	"server/models"
+	"server/config"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/api/idtoken"
 )
-
-var DB *sql.DB
-
-
 
 func GoogleAuth(c *gin.Context){
 	var req models.GoogleRequest
@@ -48,11 +45,11 @@ func GoogleAuth(c *gin.Context){
 	var userID int
 	var userRole string
 
-	err = DB.QueryRow("SELECT id,role FROM users WHERE email = ?",email).Scan(&userID,&userRole)
+	err = config.DB.QueryRow("SELECT id,role FROM users WHERE email = ?",email).Scan(&userID,&userRole)
 
 	if err == sql.ErrNoRows {
 		//new user entry
-		result , err := DB.Exec(
+		result , err := config.DB.Exec(
 			`INSERT INTO users (google_id,display_name,email,avatar_url,last_login_at) VALUES (?,?,?,?,NOW())`,googleID,name,email,avatarURL,
 		)
 		if err != nil{
@@ -76,7 +73,7 @@ func GoogleAuth(c *gin.Context){
 		return
 	}else {
 		//updating existing user
-		_,err = DB.Exec(`UPDATE users SET last_login_at=NOW(),display_name = ? , avatar_url = ? , google_id = ? WHERE id = ?`,name,avatarURL,googleID,userID)
+		_,err = config.DB.Exec(`UPDATE users SET last_login_at=NOW(),display_name = ? , avatar_url = ? , google_id = ? WHERE id = ?`,name,avatarURL,googleID,userID)
 
 		if err!=nil{
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
