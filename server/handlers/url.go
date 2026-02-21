@@ -1,11 +1,13 @@
 package handlers
 
 import (
-	"time"
 	"database/sql"
 	"net/http"
+	"net/url"
 	"server/config"
 	"server/models"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -41,60 +43,86 @@ func UrlAvailabilityChecker(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusInternalServerError, gin.H{
 		"status": false,
 		"error":  "Database error",
 	})
 }
 
-func AddUrl(c *gin.Context){
-	var input  models.UrlRequest
-	if err := c.ShouldBindJSON(&input);err!=nil{
-		c.JSON(http.StatusBadRequest,gin.H{"error":"Invalid Input"})
+func AddUrl(c *gin.Context) {
+	var input models.UrlRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Input"})
 		return
 	}
-	userIDvalue ,exists := c.Get("user_id")
+
+	// Validate and normalize URL
+	originalUrl := strings.TrimSpace(input.OriginalUrl)
+	if originalUrl == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "URL cannot be empty"})
+		return
+	}
+
+	// Add scheme if missing
+	if !strings.HasPrefix(originalUrl, "http://") && !strings.HasPrefix(originalUrl, "https://") {
+		originalUrl = "https://" + originalUrl
+	}
+
+	// Validate URL format
+	_, err := url.ParseRequestURI(originalUrl)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL format"})
+		return
+	}
+
+	userIDvalue, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized,gin.H{"error":"Unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 	userID := userIDvalue.(int)
 
-	_,err := config.DB.Exec("INSERT INTO urls (user_id,short_code,original_url,created_at,expires_at) VALUES (?,?,?,?,?)",userID,input.ShortCode,input.OriginalUrl,time.Now(),time.Now().Add(48*time.Hour))
+	_, err = config.DB.Exec("INSERT INTO urls (user_id,short_code,original_url,created_at,expires_at) VALUES (?,?,?,?,?)", userID, input.ShortCode, originalUrl, time.Now(), time.Now().Add(48*time.Hour))
 
-	if err!=nil{
-		c.JSON(http.StatusInternalServerError,gin.H{"error":err.Error()})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK,gin.H{
-		"message":"URL added Successfully",
+	c.JSON(http.StatusOK, gin.H{
+		"message": "URL added Successfully",
 	})
 }
 
-func RedirectUrl(c *gin.Context){
+func RedirectUrl(c *gin.Context) {
 	shortcode := c.Param("shortcode")
 
 	var originalUrl string
 
-	err:=config.DB.QueryRow(
-		"SELECT original_url FROM urls WHERE short_code = ?",shortcode,
+	err := config.DB.QueryRow(
+		"SELECT original_url FROM urls WHERE short_code = ?", shortcode,
 	).Scan(&originalUrl)
 
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound,gin.H{"error":"URL not Found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "URL not Found"})
 		return
 	}
-	
-	if err!=nil{
-		c.JSON(http.StatusInternalServerError,gin.H{"error":"Database Error"});
-		return
-	}
-	_,err = config.DB.Exec("UPDATE urls SET clicks = clicks+1 WHERE short_code=?",shortcode)
 
-	if err!=nil{
-		c.JSON(http.StatusInternalServerError,gin.H{"error":"Failed To Update click count"})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database Error"})
 		return
 	}
-	c.Redirect(http.StatusFound,originalUrl)
+
+	// Ensure URL has a scheme for proper redirection
+	if !strings.HasPrefix(originalUrl, "http://") && !strings.HasPrefix(originalUrl, "https://") {
+		originalUrl = "https://" + originalUrl
+	}
+
+	_, err = config.DB.Exec("UPDATE urls SET clicks = clicks+1 WHERE short_code=?", shortcode)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed To Update click count"})
+		return
+	}
+	c.Redirect(http.StatusFound, originalUrl)
 }

@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import NavBar from '../components/NavBar'
 import api from '../api/axios'
 
-const BASE_URL = 'https://url-shortner-cewq.onrender.com'
+const BASE_URL = 'https://localhost:5000'
 
 function Home() {
     const [originalUrl, setOriginalUrl] = useState('')

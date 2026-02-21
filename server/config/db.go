@@ -21,9 +21,11 @@ func InitDB() error {
 		os.Getenv("DB_PORT"),
 		os.Getenv("DB_NAME"),
 	)
+	log.Printf("DB Host=%s", os.Getenv("DB_HOST"))
+	log.Printf("DB Port=%s", os.Getenv("DB_PORT"))
 
 	DB, err = sql.Open("mysql", dsn)
-	if err != nil {
+	if err != nil {	
 		return err
 	}
 
