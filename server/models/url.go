@@ -6,7 +6,7 @@ import(
 
 type Url struct {
 	ID          int    		`json:"id"`
-	UserID      string 		`json:"user_id"`
+	UserID      int 		`json:"user_id"`
 	ShortCode   string 		`json:"short_code"`
 	OriginalUrl string 		`json:"original_url"`
 	CreatedAt   time.Time 	`json:"created_at"`

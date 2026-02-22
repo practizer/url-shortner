@@ -12,20 +12,30 @@ import (
 var DB *sql.DB
 
 func InitDB() error {
+	
 	var err error
+
+	// Get environment variables with defaults where appropriate
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASS")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbName := os.Getenv("DB_NAME")
+
+
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?parseTime=true",
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASS"),
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_NAME"),
+		dbUser,
+		dbPass,
+		dbHost,
+		dbPort,
+		dbName,
 	)
-	log.Printf("DB Host=%s", os.Getenv("DB_HOST"))
-	log.Printf("DB Port=%s", os.Getenv("DB_PORT"))
+
+	log.Printf("Connecting to database: %s@%s:%s/%s", dbUser, dbHost, dbPort, dbName)
 
 	DB, err = sql.Open("mysql", dsn)
-	if err != nil {	
+	if err != nil {
 		return err
 	}
 

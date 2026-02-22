@@ -1,23 +1,36 @@
-import React from 'react'
+import React, { useState, useContext } from 'react'
 import { GoogleLogin } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
+import { AuthContext } from '../context/AuthContext';
 import api from '../api/axios';
 
 function Login() {
     const navigate = useNavigate();
+    const { setIsauthenticated } = useContext(AuthContext);
+    const [error, setError] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSuccess = async (credentialResponse) => {
         try {
+            setError("");
+            setIsLoading(true);
             const res = await api.post("/auth/login", {
                 token: credentialResponse.credential,
             });
             if (res.status === 200) {
+                setIsauthenticated(true);
                 navigate("/home");
             }
         } catch (error) {
-            alert("Login Failed");
+            setError(error.response?.data?.error || "Login failed. Please try again.");
             console.log(error);
+        } finally {
+            setIsLoading(false);
         }
+    };
+
+    const handleGoogleError = () => {
+        setError("Google login failed. Please try again.");
     };
 
     return (
@@ -33,7 +46,7 @@ function Login() {
             <div className="relative z-10 w-full max-w-sm mx-4">
                 <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden">
 
-                    <div className="h-0.5 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500" />
+                    <div className="h-0.5 w-full bg-linear-to-r from-indigo-500 via-violet-500 to-indigo-500" />
 
                     <div className="px-10 py-12 flex flex-col items-center gap-8">
                         
@@ -58,14 +71,20 @@ function Login() {
                         </div>
 
                         <div className="flex flex-col items-center gap-4 w-full">
+                            {error && (
+                                <div className="w-full bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+                                    <p className="text-red-400 text-sm">{error}</p>
+                                </div>
+                            )}
                             <div className="w-full flex justify-center [&>div]:w-full [&>div>div]:w-full [&>div>div>div]:w-full [&_iframe]:w-full">
                                 <GoogleLogin
                                     onSuccess={handleSuccess}
-                                    onError={() => alert("Google Login Failed")}
+                                    onError={handleGoogleError}
                                     theme="filled_black"
                                     size="large"
                                     shape="rectangular"
                                     width="100%"
+                                    disabled={isLoading}
                                 />
                             </div>
                             <p className="text-zinc-600 text-xs text-center leading-relaxed">
