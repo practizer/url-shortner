@@ -9,7 +9,8 @@ const api = axios.create({
 api.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401) {
+    // Only redirect on 401 for non-auth endpoints to avoid auth check loops
+    if (err.response?.status === 401 && !err.config?.url?.includes("/auth/me")) {
       window.location.href = "/login";
     }
     return Promise.reject(err);
