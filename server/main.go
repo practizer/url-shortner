@@ -2,17 +2,13 @@
 package main
 
 import(
-	"database/sql"
 	"log"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
 	"server/routes"
-	"server/config"
 )
-var DB *sql.DB
 
 func main(){
 	// Load .env file
@@ -20,9 +16,8 @@ func main(){
 		log.Println("No .env file found, using system environment variables")
 	}
 
-	config.InitDB()
-	config.InitRedis()
-
+	log.Println("Starting URL Shortener Server (In-Memory Mode)")
+	
 	r := gin.Default()
 	routes.Routes(r)
 

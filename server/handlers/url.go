@@ -1,20 +1,20 @@
 package handlers
 
 import (
-	"database/sql"
 	"net/http"
 	"net/url"
 	"server/config"
 	"server/models"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 func UrlAvailabilityChecker(c *gin.Context) {
 
-	var input models.Url
+	var input struct {
+		ShortCode string `json:"short_code"`
+	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -24,11 +24,17 @@ func UrlAvailabilityChecker(c *gin.Context) {
 		return
 	}
 
-	var shortCode string
+	if strings.TrimSpace(input.ShortCode) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": false,
+			"error":  "Short code cannot be empty",
+		})
+		return
+	}
 
-	err := config.DB.QueryRow("SELECT short_code FROM urls WHERE short_code = ?", input.ShortCode).Scan(&shortCode)
+	isAvailable := config.URLStore.CheckAvailability(input.ShortCode)
 
-	if err == nil {
+	if !isAvailable {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status": false,
 			"error":  "Short Code Already Exists",
@@ -36,19 +42,12 @@ func UrlAvailabilityChecker(c *gin.Context) {
 		return
 	}
 
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusOK, gin.H{
-			"status":  true,
-			"message": "Short Code Available",
-		})
-		return
-	}
-
-	c.JSON(http.StatusInternalServerError, gin.H{
-		"status": false,
-		"error":  "Database error",
+	c.JSON(http.StatusOK, gin.H{
+		"status":  true,
+		"message": "Short Code Available",
 	})
 }
+
 
 func AddUrl(c *gin.Context) {
 	var input models.UrlRequest
@@ -76,35 +75,30 @@ func AddUrl(c *gin.Context) {
 		return
 	}
 
-	userIDvalue, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+	shortCode := strings.TrimSpace(input.ShortCode)
+	if shortCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Short code cannot be empty"})
 		return
 	}
-	userID := userIDvalue.(int)
 
-	_, err = config.DB.Exec("INSERT INTO urls (user_id,short_code,original_url,created_at,expires_at) VALUES (?,?,?,?,?)", userID, input.ShortCode, originalUrl, time.Now(), time.Now().Add(48*time.Hour))
-
+	// Create URL in storage
+	err = config.URLStore.CreateURL(shortCode, originalUrl)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "URL added Successfully",
 	})
 }
+
 func DeleteUrl(c *gin.Context) {
-	userIDvalue, exists := c.Get("user_id");
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-	userID := userIDvalue.(int)
 	shortcode := c.Param("shortcode")
 
-	_, err := config.DB.Exec("DELETE FROM urls WHERE user_id = ? AND short_code = ?", userID, shortcode)
+	err := config.URLStore.DeleteURL(shortcode)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete URL"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "URL not found"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -115,64 +109,24 @@ func DeleteUrl(c *gin.Context) {
 func RedirectUrl(c *gin.Context){
 	shortcode := c.Param("shortcode")
 
-	var originalUrl string
-
-	err:=config.DB.QueryRow(
-		"SELECT original_url FROM urls WHERE short_code = ?",shortcode,
-	).Scan(&originalUrl)
-
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound,gin.H{"error":"URL not Found"})
+	url := config.URLStore.GetURL(shortcode)
+	if url == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "URL not found"})
 		return
 	}
-	
-	if err!=nil{
-		c.JSON(http.StatusInternalServerError,gin.H{"error":"Database Error"});
-		return
-	}
-	_,err = config.DB.Exec("UPDATE urls SET clicks = clicks+1 WHERE short_code=?",shortcode)
 
-	if err!=nil{
-		c.JSON(http.StatusInternalServerError,gin.H{"error":"Failed To Update click count"})
-		return
-	}
-	c.Redirect(http.StatusFound,originalUrl)
+	// Increment clicks
+	config.URLStore.IncrementClicks(shortcode)
+
+	c.Redirect(http.StatusFound, url.OriginalUrl)
 }
 
 func GetUserUrls(c *gin.Context) {
-	userIDvalue, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-	userID := userIDvalue.(int)
+	// Get all URLs (no user concept in in-memory mode)
+	urls := config.URLStore.GetAllURLs()
 
-	rows, err := config.DB.Query(
-		"SELECT id, user_id, short_code, original_url, clicks, created_at, expires_at FROM urls WHERE user_id = ? ORDER BY created_at DESC",
-		userID,
-	)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve URLs"})
-		return
-	}
-	defer rows.Close()
-
-	var urls []models.Url
-
-	for rows.Next() {
-		var url models.Url
-		err := rows.Scan(&url.ID, &url.UserID, &url.ShortCode, &url.OriginalUrl, &url.Clicks, &url.CreatedAt, &url.ExpiresAt)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error scanning URLs"})
-			return
-		}
-		urls = append(urls, url)
-	}
-
-	if err = rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error iterating over URLs"})
-		return
+	if urls == nil {
+		urls = []*models.Url{}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

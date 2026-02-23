@@ -1,16 +1,6 @@
 import React from 'react'
-import api from '../api/axios'
 
 function NavBar() {
-  const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout')
-      window.location.href = '/'
-    } catch (error) {
-      console.error('Logout failed:', error)
-    }
-  }
-
   return (
     <div className="w-full h-16 bg-zinc-900 border-b border-zinc-800 flex items-center px-8 relative justify-between">
       <div className="h-0.5 w-full bg-linear-to-r from-indigo-500 via-violet-500 to-indigo-500 absolute top-0 left-0" />
@@ -24,12 +14,9 @@ function NavBar() {
           BITS Links
         </span>
       </div>
-      <button
-        onClick={handleLogout}
-        className="px-4 py-2 bg-gray-950 border hover:border-blue-700 cursor-pointer text-white rounded-lg font-medium transition-colors duration-200"
-      >
-        Logout
-      </button>
+      <div className="text-zinc-500 text-sm">
+        Free URL Shortener
+      </div>
     </div>
   )
 }

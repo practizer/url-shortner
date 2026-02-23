@@ -329,7 +329,7 @@ function Home() {
                             {userUrls.length > 0 && (
                                 <div className="flex flex-col gap-3">
                                     {userUrls.map((url) => (
-                                        <div key={url.id} className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 hover:bg-zinc-800/80 transition-colors">
+                                        <div key={url.short_code} className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 hover:bg-zinc-800/80 transition-colors">
                                             <div className="flex items-start justify-between gap-3 mb-3">
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-indigo-400 font-mono text-sm bg-zinc-950 rounded px-2 py-1 inline-block">
